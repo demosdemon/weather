@@ -25,7 +25,7 @@ func (island *Island) NewDay(instance *Instance, ts time.Time) (*Day, error) {
 	}
 
 	day := &Day{
-		Island:  *island,
+		Island:  island,
 		Year:    int32(year),
 		Month:   month,
 		Date:    int32(date),
@@ -110,7 +110,7 @@ func (island *Island) NewDay(instance *Instance, ts time.Time) (*Day, error) {
 }
 
 type Day struct {
-	Island         Island
+	Island         *Island
 	Year           int32
 	Month          time.Month
 	Date           int32
