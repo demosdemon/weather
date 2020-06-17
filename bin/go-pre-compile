@@ -1,3 +1,4 @@
 #!/usr/bin/env bash
 
-packr build .
+go get -u github.com/gobuffalo/packr/v2/packr2
+packr2 build .
