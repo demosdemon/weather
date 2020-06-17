@@ -6,4 +6,4 @@ go env
 go get -u github.com/gobuffalo/packr/v2/packr2
 bin/packr2 build .
 rm -rf ./bin/packr2
-cp "$(go env GOPATH)"/pkg/mod/github.com/wasmerio/go-ext-wasm@*/wasmer/libwasmer.* ./
+

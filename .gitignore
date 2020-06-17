@@ -1,5 +1,4 @@
 ### https://raw.github.com/github/gitignore/18aa6d83774d514da479d73a4beb864cd4220231/Go.gitignore
-
 # Binaries for programs and plugins
 *.exe
 *.exe~
@@ -22,3 +21,6 @@
 # ignore packr files
 *-packr.go
 packrd/
+
+# don't ignore vendored libs
+!.heroku/vendor/*
