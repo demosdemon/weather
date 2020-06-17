@@ -34,6 +34,7 @@ func getFeed(box *packr.Box, c *gin.Context) ([]*meteonook.Day, *time.Location, 
 	if last.IsZero() {
 		last = first.AddDate(1, 0, 0)
 	}
+	last = last.Add(oneDay)
 
 	if last.Before(first) {
 		return nil, loc, c.AbortWithError(http.StatusBadRequest, newError("last is before first", nil))
@@ -73,6 +74,7 @@ func getFeed(box *packr.Box, c *gin.Context) ([]*meteonook.Day, *time.Location, 
 			return nil, loc, c.AbortWithError(http.StatusInternalServerError, newError("error with weather engine", err))
 		}
 		days = append(days, day)
+		first = first.Add(oneDay)
 	}
 	return days, loc, nil
 }
