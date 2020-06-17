@@ -100,10 +100,12 @@ func (i *Instance) GetSnow(isSouthern, month, date int32) (int32, error) {
 	return i.i32("c", isSouthern, month, date)
 }
 
+//! unused
 func (i *Instance) GetCloud(isSouthern, month, date int32) (int32, error) {
 	return i.i32("d", isSouthern, month, date)
 }
 
+//! used for guessing
 func (i *Instance) GetSPWeather(isSouthern, month, date int32) (int32, error) {
 	return i.i32("e", isSouthern, month, date)
 }
@@ -116,10 +118,12 @@ func (i *Instance) CheckWaterFog(seed, year, month, date int32) (int32, error) {
 	return i.i32("g", seed, year, month, date)
 }
 
+//! unnecessary
 func (i *Instance) IsHeavyShowerPattern(isSouthern, month, date, pattern int32) (int32, error) {
 	return i.i32("h", isSouthern, month, date, pattern)
 }
 
+//! unnecessary
 func (i *Instance) IsLightShowerPattern(isSouthern, month, date, pattern int32) (int32, error) {
 	return i.i32("i", isSouthern, month, date, pattern)
 }
@@ -136,6 +140,7 @@ func (i *Instance) GetPattern(seed, isSouthern, year, month, date int32) (int32,
 	return i.i32("l", seed, isSouthern, year, month, date)
 }
 
+//! used for guessing
 func (i *Instance) IsPatternPossibleAtDate(isSouthern, month, date, pattern int32) (int32, error) {
 	return i.i32("m", isSouthern, month, date, pattern)
 }
@@ -156,70 +161,95 @@ func (i *Instance) CanHaveShootingStars(pattern, hour int32) (int32, error) {
 	return i.i32("q", pattern, hour)
 }
 
+//! mutates state
 func (i *Instance) QueryStars(pattern, seed, year, month, date, hour, minute int32) (int32, error) {
 	return i.i32("r", pattern, seed, year, month, date, hour, minute)
 }
 
+//! depends on QueryStars
 func (i *Instance) GetStarAmount() (int32, error) {
 	return i.i32("s")
 }
 
+//! depends on QueryStars and GetStarAmount
 func (i *Instance) GetStarSecond(index int32) (int32, error) {
 	return i.i32("t", index)
 }
 
+//! mutates state
+//! used for guessing
 func (i *Instance) GuessClear() error {
 	return i.void("u")
 }
 
+//! mutates state
+//! used for guessing
 func (i *Instance) GuessAddType(year, month, date, hour, pattern int32) error {
 	return i.void("v", year, month, date, hour, pattern)
 }
 
+//! mutates state
+//! used for guessing
 func (i *Instance) GuessAddPattern(year, month, date, hour, pattern int32) error {
 	return i.void("w", year, month, date, hour, pattern)
 }
 
+//! mutates state
+//! used for guessing
 func (i *Instance) GuessAddMinute(year, month, date, hour, minute, value int32) (int32, error) {
 	return i.i32("x", year, month, date, hour, minute, value)
 }
 
+//! mutates state
+//! used for guessing
 func (i *Instance) GuessAddSecond(year, month, date, hour, minute, second int32) (int32, error) {
 	return i.i32("y", year, month, date, hour, minute, second)
 }
 
+//! mutates state
+//! used for guessing
 func (i *Instance) GuessAddDoubleRainbow(year, month, date, double int32) error {
 	return i.void("z", year, month, date, double)
 }
 
+//! mutates state
+//! used for guessing
 func (i *Instance) SearchInit(isSouthern int32) error {
 	return i.void("A", isSouthern)
 }
 
+//! used for guessing
 func (i *Instance) SearchGetPercentage() (float32, error) {
 	return i.f32("B")
 }
 
+//! used for guessing
 func (i *Instance) SearchCompleted() (int32, error) {
 	return i.i32("C")
 }
 
+//! used for guessing
 func (i *Instance) SearchFailed() (int32, error) {
 	return i.i32("D")
 }
 
+//! used for guessing
 func (i *Instance) SearchGetMaxResultCount() (int32, error) {
 	return i.i32("E")
 }
 
+//! used for guessing
 func (i *Instance) SearchGetResultCount() (int32, error) {
 	return i.i32("F")
 }
 
+//! used for guessing
 func (i *Instance) SearchGetResult(index int32) (int32, error) {
 	return i.i32("G", index)
 }
 
+//! mutates state
+//! used for guessing
 func (i *Instance) SearchStep() error {
 	return i.void("H")
 }
