@@ -21,6 +21,3 @@
 # ignore packr files
 *-packr.go
 packrd/
-
-# don't ignore vendored libs
-!.heroku/vendor/**/*
