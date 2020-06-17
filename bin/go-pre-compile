@@ -4,3 +4,4 @@ set -eux
 
 go get -u github.com/gobuffalo/packr/v2/packr2
 bin/packr2 build .
+rm -rf ./bin/packr2
