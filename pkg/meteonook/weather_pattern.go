@@ -84,6 +84,7 @@ var weatherPatternStrings = map[WeatherPattern]string{
 var stringWeatherPatterns map[string]WeatherPattern
 
 func init() {
+	stringWeatherPatterns = make(map[string]WeatherPattern, len(weatherPatternStrings))
 	for k, v := range weatherPatternStrings {
 		stringWeatherPatterns[v] = k
 	}

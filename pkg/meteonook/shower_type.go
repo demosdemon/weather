@@ -22,6 +22,7 @@ var showerStrings = map[ShowerType]string{
 var stringShowers map[string]ShowerType
 
 func init() {
+	stringShowers = make(map[string]ShowerType, len(showerStrings))
 	for k, v := range showerStrings {
 		stringShowers[v] = k
 	}

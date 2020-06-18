@@ -22,6 +22,7 @@ var rainbowStrings = map[RainbowType]string{
 var stringRainbows map[string]RainbowType
 
 func init() {
+	stringRainbows = make(map[string]RainbowType, len(rainbowStrings))
 	for k, v := range rainbowStrings {
 		stringRainbows[v] = k
 	}

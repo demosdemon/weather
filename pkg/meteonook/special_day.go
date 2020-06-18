@@ -26,6 +26,7 @@ var specialDayStrings = map[SpecialDay]string{
 var stringSpecialDays map[string]SpecialDay
 
 func init() {
+	stringSpecialDays = make(map[string]SpecialDay, len(specialDayStrings))
 	for k, v := range specialDayStrings {
 		stringSpecialDays[v] = k
 	}

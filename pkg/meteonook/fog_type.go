@@ -22,6 +22,7 @@ var fogTypeStrings = map[FogType]string{
 var stringFogTypes map[string]FogType
 
 func init() {
+	stringFogTypes = make(map[string]FogType, len(fogTypeStrings))
 	for k, v := range fogTypeStrings {
 		stringFogTypes[v] = k
 	}
