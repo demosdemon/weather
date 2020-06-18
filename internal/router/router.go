@@ -22,12 +22,28 @@ func NewRouter(box *packr.Box) *gin.Engine {
 }
 
 type FeedQuery struct {
-	IslandName string    `form:"island_name"`
-	Hemisphere string    `form:"hemisphere" binding:"required"`
-	Seed       int32     `form:"seed" binding:"required"`
-	Timezone   string    `form:"timezone"`
-	FirstDate  time.Time `form:"first_date"`
-	LastDate   time.Time `form:"last_date"`
+	IslandName string `form:"island_name"`
+	Hemisphere string `form:"hemisphere" binding:"required"`
+	Seed       int32  `form:"seed" binding:"required"`
+	Timezone   string `form:"timezone"`
+	FirstDate  string `form:"first_date"`
+	LastDate   string `form:"last_date"`
+}
+
+func (f FeedQuery) first() (time.Time, error) {
+	if f.FirstDate == "" {
+		return time.Time{}, nil
+	}
+
+	return time.Parse("2006-01-02", f.FirstDate)
+}
+
+func (f FeedQuery) last() (time.Time, error) {
+	if f.LastDate == "" {
+		return time.Time{}, nil
+	}
+
+	return time.Parse("2006-01-02", f.LastDate)
 }
 
 type Error struct {

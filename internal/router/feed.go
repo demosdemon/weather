@@ -25,12 +25,18 @@ func getFeed(box *packr.Box, c *gin.Context) ([]*meteonook.Day, *time.Location, 
 	const oneDay = time.Hour * 24
 	today := time.Now().In(loc).Truncate(oneDay)
 
-	first := query.FirstDate
+	first, err := query.first()
+	if err != nil {
+		return nil, loc, c.AbortWithError(http.StatusBadRequest, newError("invalid first_date", err))
+	}
 	if first.IsZero() {
 		first = today.AddDate(0, -3, 0)
 	}
 
-	last := query.LastDate
+	last, err := query.last()
+	if err != nil {
+		return nil, loc, c.AbortWithError(http.StatusBadRequest, newError("invalid last_date", err))
+	}
 	if last.IsZero() {
 		last = first.AddDate(1, 0, 0)
 	}
