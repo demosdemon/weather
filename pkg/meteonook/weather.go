@@ -25,6 +25,14 @@ var weatherStrings = map[Weather]string{
 	HeavyStorm:  "Heavy Storm",
 }
 
+var stringWeathers map[string]Weather
+
+func init() {
+	for k, v := range weatherStrings {
+		stringWeathers[v] = k
+	}
+}
+
 func (s Weather) String() string {
 	if v, ok := weatherStrings[s]; ok {
 		return v
@@ -34,4 +42,19 @@ func (s Weather) String() string {
 
 func (s Weather) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.String())
+}
+
+func (s *Weather) UnmarshalJSON(data []byte) error {
+	var str string
+	err := json.Unmarshal(data, &str)
+	if err != nil {
+		return err
+	}
+
+	if v, ok := stringWeathers[str]; ok {
+		*s = v
+		return nil
+	}
+
+	return fmt.Errorf("invalid Weather: %s", str)
 }

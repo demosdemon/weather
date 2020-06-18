@@ -3,6 +3,7 @@ package meteonook
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 )
 
 type LinearHour int32
@@ -74,4 +75,20 @@ func (hour LinearHour) RegularHour() int32 {
 
 func (hour LinearHour) MarshalJSON() ([]byte, error) {
 	return json.Marshal(hour.String())
+}
+
+func (hour *LinearHour) UnmarshalJSON(data []byte) error {
+	var s string
+	err := json.Unmarshal(data, &s)
+	if err != nil {
+		return err
+	}
+
+	t, err := time.Parse("15:04", s)
+	if err != nil {
+		return err
+	}
+
+	*hour = NewLinearHour(int32(t.Hour()))
+	return nil
 }

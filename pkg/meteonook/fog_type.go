@@ -19,6 +19,14 @@ var fogTypeStrings = map[FogType]string{
 	WaterFog: "Water Fog",
 }
 
+var stringFogTypes map[string]FogType
+
+func init() {
+	for k, v := range fogTypeStrings {
+		stringFogTypes[v] = k
+	}
+}
+
 func (t FogType) String() string {
 	if v, ok := fogTypeStrings[t]; ok {
 		return v
@@ -29,6 +37,21 @@ func (t FogType) String() string {
 
 func (t FogType) MarshalJSON() ([]byte, error) {
 	return json.Marshal(t.String())
+}
+
+func (t *FogType) UnmarshalJSON(data []byte) error {
+	var s string
+	err := json.Unmarshal(data, &s)
+	if err != nil {
+		return err
+	}
+
+	if v, ok := stringFogTypes[s]; ok {
+		*t = v
+		return nil
+	}
+
+	return fmt.Errorf("invalid FogType: %s", s)
 }
 
 var preNormalFogPatterns = map[WeatherPattern]bool{

@@ -81,6 +81,14 @@ var weatherPatternStrings = map[WeatherPattern]string{
 	EventDay00:  "EventDay00",
 }
 
+var stringWeatherPatterns map[string]WeatherPattern
+
+func init() {
+	for k, v := range weatherPatternStrings {
+		stringWeatherPatterns[v] = k
+	}
+}
+
 func (wp WeatherPattern) String() string {
 	if v, ok := weatherPatternStrings[wp]; ok {
 		return v
@@ -92,6 +100,21 @@ func (wp WeatherPattern) String() string {
 func (wp WeatherPattern) MarshalJSON() ([]byte, error) {
 	s := wp.String()
 	return json.Marshal(s)
+}
+
+func (wp *WeatherPattern) UnmarshalJSON(data []byte) error {
+	var s string
+	err := json.Unmarshal(data, &s)
+	if err != nil {
+		return err
+	}
+
+	if v, ok := stringWeatherPatterns[s]; ok {
+		*wp = v
+		return nil
+	}
+
+	return fmt.Errorf("invalid WeatherPattern: %s", s)
 }
 
 func (wp WeatherPattern) ShowerType() ShowerType {

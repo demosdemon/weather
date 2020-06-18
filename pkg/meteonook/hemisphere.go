@@ -26,3 +26,22 @@ func (h Hemisphere) String() string {
 func (h Hemisphere) MarshalJSON() ([]byte, error) {
 	return json.Marshal(h.String())
 }
+
+func (h *Hemisphere) UnmarshalJSON(data []byte) error {
+	var s string
+	err := json.Unmarshal(data, &s)
+	if err != nil {
+		return err
+	}
+
+	switch s {
+	case "Northern":
+		*h = Northern
+	case "Southern":
+		*h = Southern
+	default:
+		return fmt.Errorf("invalid Hemisphere: %s", s)
+	}
+
+	return nil
+}
