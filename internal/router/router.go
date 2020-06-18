@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 	"github.com/gobuffalo/packr/v2"
 )
@@ -14,6 +15,7 @@ func NewRouter(box *packr.Box) *gin.Engine {
 		gin.Logger(),
 		gin.ErrorLogger(),
 		gin.Recovery(),
+		gzip.Gzip(gzip.BestCompression),
 	)
 
 	r.GET("/feed.json", getFeedJSON(box))
