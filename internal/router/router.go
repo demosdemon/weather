@@ -16,6 +16,7 @@ func NewRouter(box *packr.Box) *gin.Engine {
 	r := gin.New()
 	r.Use(
 		gin.Logger(),
+		gin.ErrorLogger(),
 		gin.Recovery(),
 	)
 
