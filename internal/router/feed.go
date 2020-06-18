@@ -1,28 +1,16 @@
 package router
 
 import (
-	"encoding/json"
-	"log"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gobuffalo/packr/v2"
-	"github.com/memcachier/mc"
 
 	"github.com/demosdemon/weather/pkg/meteonook"
 )
 
-func cacheKey(q string) string {
-	p, err := url.ParseQuery(q)
-	if err == nil {
-		return p.Encode()
-	}
-	return q
-}
-
-func getFeed(c *mc.Client, box *packr.Box, ctx *gin.Context) ([]*meteonook.Day, *time.Location, error) {
+func getFeed(box *packr.Box, ctx *gin.Context) ([]*meteonook.Day, *time.Location, error) {
 	var query FeedQuery
 	if err := ctx.ShouldBindQuery(&query); err != nil {
 		return nil, nil, ctx.AbortWithError(http.StatusBadRequest, newError("invalid query", err)).SetType(gin.ErrorTypePublic)
@@ -31,22 +19,6 @@ func getFeed(c *mc.Client, box *packr.Box, ctx *gin.Context) ([]*meteonook.Day, 
 	loc, err := time.LoadLocation(query.Timezone)
 	if err != nil {
 		return nil, nil, ctx.AbortWithError(http.StatusBadRequest, newError("invalid timezone", err)).SetType(gin.ErrorTypePublic)
-	}
-
-	key := cacheKey(ctx.Request.URL.RawQuery)
-	v, _, _, _ := c.Get(key)
-	if v == "" {
-		log.Printf("cache miss for %s", key)
-	} else {
-		log.Printf("cache hit for %s", key)
-
-		var days []*meteonook.Day
-		err := json.Unmarshal([]byte(v), &days)
-		if err != nil {
-			log.Printf("error decoding cache: %v", err)
-		} else {
-			return days, loc, nil
-		}
 	}
 
 	const oneDay = time.Hour * 24
@@ -68,13 +40,6 @@ func getFeed(c *mc.Client, box *packr.Box, ctx *gin.Context) ([]*meteonook.Day, 
 		last = first.AddDate(1, 0, 0)
 	}
 	last = last.Add(oneDay)
-
-	numDays := int(last.Sub(first) / oneDay)
-	// arbitrary limit
-	if numDays > 500 {
-		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("date range too large", nil)).SetType(gin.ErrorTypePublic)
-	}
-
 	if last.Before(first) {
 		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("last is before first", nil)).SetType(gin.ErrorTypePublic)
 	}
@@ -107,6 +72,7 @@ func getFeed(c *mc.Client, box *packr.Box, ctx *gin.Context) ([]*meteonook.Day, 
 	}
 	defer instance.Close()
 
+	numDays := int(last.Sub(first) / oneDay)
 	days := make([]*meteonook.Day, 0, numDays)
 	for first.Before(last) {
 		day, err := island.NewDay(instance, first)
@@ -115,11 +81,6 @@ func getFeed(c *mc.Client, box *packr.Box, ctx *gin.Context) ([]*meteonook.Day, 
 		}
 		days = append(days, day)
 		first = first.Add(oneDay)
-	}
-
-	cache, _ := json.Marshal(days)
-	if _, err := c.Set(key, string(cache), 0, 0, 0); err != nil {
-		log.Printf("error saving %s to cache: %v", key, err)
 	}
 
 	return days, loc, nil

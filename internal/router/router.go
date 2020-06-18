@@ -2,17 +2,13 @@ package router
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gobuffalo/packr/v2"
-	"github.com/memcachier/mc"
 )
 
 func NewRouter(box *packr.Box) *gin.Engine {
-	c := mc.NewMC(os.Getenv("MEMCACHIER_SERVERS"), os.Getenv("MEMCACHIER_USERNAME"), os.Getenv("MEMCACHIER_PASSWORD"))
-
 	r := gin.New()
 	r.Use(
 		gin.Logger(),
@@ -20,8 +16,8 @@ func NewRouter(box *packr.Box) *gin.Engine {
 		gin.Recovery(),
 	)
 
-	r.GET("/feed.json", getFeedJSON(c, box))
-	r.GET("/feed.ics", getFeedICS(c, box))
+	r.GET("/feed.json", getFeedJSON(box))
+	r.GET("/feed.ics", getFeedICS(box))
 
 	return r
 }
