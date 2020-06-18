@@ -45,7 +45,11 @@ func getFeed(c *mc.Client, box *packr.Box, ctx *gin.Context) ([]*meteonook.Day, 
 	} else {
 		var days []*meteonook.Day
 		err := json.Unmarshal([]byte(v), &days)
-		return days, loc, err
+		if err != nil {
+			log.Printf("error decoding cache: %v", err)
+		} else {
+			return days, loc, nil
+		}
 	}
 
 	const oneDay = time.Hour * 24
