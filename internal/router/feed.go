@@ -72,6 +72,12 @@ func getFeed(c *mc.Client, box *packr.Box, ctx *gin.Context) ([]*meteonook.Day, 
 	}
 	last = last.Add(oneDay)
 
+	numDays := int(last.Sub(first) / oneDay)
+	// arbitrary limit
+	if numDays > 500 {
+		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("date range too large", nil))
+	}
+
 	if last.Before(first) {
 		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("last is before first", nil))
 	}
@@ -104,7 +110,7 @@ func getFeed(c *mc.Client, box *packr.Box, ctx *gin.Context) ([]*meteonook.Day, 
 	}
 	defer instance.Close()
 
-	days := make([]*meteonook.Day, 0, int(last.Sub(first)/oneDay))
+	days := make([]*meteonook.Day, 0, numDays)
 	for first.Before(last) {
 		day, err := island.NewDay(instance, first)
 		if err != nil {
