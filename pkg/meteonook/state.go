@@ -10,11 +10,44 @@ const (
 	maxYear = 2060
 )
 
+// WeatherPattern is EventDay00 when SpecialDay > RegularDay
+// Fog is visible when FogType > NoFog && SixAM < LinearHour < TenAM
+// Aurora is visible when AuroraPossible is true && WeatherPattern == Fine00 && SixPM < LinearHour < ThreeAM
+// Show is visible when SnowPossible is true && Weather > StormClouds
+
 type Island struct {
-	Name       string
-	Hemisphere Hemisphere
-	Seed       int32
-	Timezone   Timezone
+	Name       string     `json:"name,omitempty"`
+	Hemisphere Hemisphere `json:"hemisphere"`
+	Seed       int32      `json:"seed"`
+	Timezone   Timezone   `json:"timezone"`
+}
+
+type Day struct {
+	Island         *Island        `json:"island"`
+	Year           int32          `json:"year"`
+	Month          time.Month     `json:"month"`
+	Date           int32          `json:"date"`
+	Weekday        time.Weekday   `json:"weekday"`
+	SpecialDay     SpecialDay     `json:"special_day,omitempty"`
+	WeatherPattern WeatherPattern `json:"weather_pattern"`
+	ShowerType     ShowerType     `json:"shower_type,omitempty"`
+	FogType        FogType        `json:"fog_type,omitempty"`
+	RainbowType    RainbowType    `json:"rainbow_type,omitempty"`
+	AuroraPossible bool           `json:"aurora_possible,omitempty"`
+	SnowPossible   bool           `json:"snow_possible,omitempty"`
+	Hours          [24]Hour       `json:"hours"`
+}
+
+type Hour struct {
+	Hour          LinearHour  `json:"hour"`
+	Weather       Weather     `json:"weather"`
+	WindPower     int32       `json:"wind_power,omitempty"`
+	ShowerType    ShowerType  `json:"shower_type,omitempty"`
+	FogType       FogType     `json:"fog_type,omitempty"`
+	RainbowType   RainbowType `json:"rainbow_type,omitempty"`
+	AuroraVisible bool        `json:"aurora_visible,omitempty"`
+	SnowVisible   bool        `json:"snow_visible,omitempty"`
+	ShootingStars []time.Time `json:"shooting_stars,omitempty"`
 }
 
 func (island *Island) NewDay(instance *Instance, ts time.Time) (*Day, error) {
@@ -107,39 +140,6 @@ func (island *Island) NewDay(instance *Instance, ts time.Time) (*Day, error) {
 	}
 
 	return day, nil
-}
-
-type Day struct {
-	Island         *Island
-	Year           int32
-	Month          time.Month
-	Date           int32
-	Weekday        time.Weekday
-	SpecialDay     SpecialDay
-	WeatherPattern WeatherPattern
-	ShowerType     ShowerType
-	FogType        FogType
-	RainbowType    RainbowType
-	AuroraPossible bool
-	SnowPossible   bool
-	Hours          [24]Hour
-}
-
-// WeatherPattern is EventDay00 when SpecialDay > RegularDay
-// Fog is visible when FogType > NoFog && SixAM < LinearHour < TenAM
-// Aurora is visible when AuroraPossible is true && WeatherPattern == Fine00 && SixPM < LinearHour < ThreeAM
-// Show is visible when SnowPossible is true && Weather > StormClouds
-
-type Hour struct {
-	Hour          LinearHour
-	Weather       Weather
-	WindPower     int32
-	ShowerType    ShowerType
-	FogType       FogType
-	RainbowType   RainbowType
-	AuroraVisible bool
-	SnowVisible   bool
-	ShootingStars []time.Time
 }
 
 func getSpecialDay(
