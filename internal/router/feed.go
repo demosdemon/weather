@@ -24,25 +24,22 @@ func cacheKey(q string) string {
 
 func getFeed(c *mc.Client, box *packr.Box, ctx *gin.Context) ([]*meteonook.Day, *time.Location, error) {
 	var query FeedQuery
-	if err := ctx.BindQuery(&query); err != nil {
-		// already aborted
-		return nil, nil, err
+	if err := ctx.ShouldBindQuery(&query); err != nil {
+		return nil, nil, ctx.AbortWithError(http.StatusBadRequest, newError("invalid query", err)).SetType(gin.ErrorTypePublic)
 	}
 
 	loc, err := time.LoadLocation(query.Timezone)
 	if err != nil {
-		return nil, nil, ctx.AbortWithError(http.StatusBadRequest, newError("invalid timezone", err))
+		return nil, nil, ctx.AbortWithError(http.StatusBadRequest, newError("invalid timezone", err)).SetType(gin.ErrorTypePublic)
 	}
 
 	key := cacheKey(ctx.Request.URL.RawQuery)
-	v, _, _, err := c.Get(key)
-	if err != nil {
-		log.Printf("error fetching from cache: %v", err)
-	}
-
+	v, _, _, _ := c.Get(key)
 	if v == "" {
 		log.Printf("cache miss for %s", key)
 	} else {
+		log.Printf("cache hit for %s", key)
+
 		var days []*meteonook.Day
 		err := json.Unmarshal([]byte(v), &days)
 		if err != nil {
@@ -57,7 +54,7 @@ func getFeed(c *mc.Client, box *packr.Box, ctx *gin.Context) ([]*meteonook.Day, 
 
 	first, err := query.first()
 	if err != nil {
-		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("invalid first_date", err))
+		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("invalid first_date", err)).SetType(gin.ErrorTypePublic)
 	}
 	if first.IsZero() {
 		first = today.AddDate(0, -3, 0)
@@ -65,7 +62,7 @@ func getFeed(c *mc.Client, box *packr.Box, ctx *gin.Context) ([]*meteonook.Day, 
 
 	last, err := query.last()
 	if err != nil {
-		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("invalid last_date", err))
+		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("invalid last_date", err)).SetType(gin.ErrorTypePublic)
 	}
 	if last.IsZero() {
 		last = first.AddDate(1, 0, 0)
@@ -75,11 +72,11 @@ func getFeed(c *mc.Client, box *packr.Box, ctx *gin.Context) ([]*meteonook.Day, 
 	numDays := int(last.Sub(first) / oneDay)
 	// arbitrary limit
 	if numDays > 500 {
-		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("date range too large", nil))
+		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("date range too large", nil)).SetType(gin.ErrorTypePublic)
 	}
 
 	if last.Before(first) {
-		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("last is before first", nil))
+		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("last is before first", nil)).SetType(gin.ErrorTypePublic)
 	}
 
 	var hemisphere meteonook.Hemisphere
@@ -89,12 +86,12 @@ func getFeed(c *mc.Client, box *packr.Box, ctx *gin.Context) ([]*meteonook.Day, 
 	case "S", "s":
 		hemisphere = meteonook.Southern
 	default:
-		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("invalid hemisphere", nil))
+		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("invalid hemisphere", nil)).SetType(gin.ErrorTypePublic)
 	}
 
 	bytes, err := box.Find("weather.wasm")
 	if err != nil {
-		return nil, loc, ctx.AbortWithError(http.StatusInternalServerError, newError("unable to load weather engine", err))
+		return nil, loc, ctx.AbortWithError(http.StatusInternalServerError, newError("unable to load weather engine", err)).SetType(gin.ErrorTypePublic)
 	}
 
 	island := meteonook.Island{
@@ -106,7 +103,7 @@ func getFeed(c *mc.Client, box *packr.Box, ctx *gin.Context) ([]*meteonook.Day, 
 
 	instance, err := meteonook.NewInstance(bytes)
 	if err != nil {
-		return nil, loc, ctx.AbortWithError(http.StatusInternalServerError, newError("unable to instantiate weather engine", err))
+		return nil, loc, ctx.AbortWithError(http.StatusInternalServerError, newError("unable to instantiate weather engine", err)).SetType(gin.ErrorTypePublic)
 	}
 	defer instance.Close()
 
@@ -114,7 +111,7 @@ func getFeed(c *mc.Client, box *packr.Box, ctx *gin.Context) ([]*meteonook.Day, 
 	for first.Before(last) {
 		day, err := island.NewDay(instance, first)
 		if err != nil {
-			return nil, loc, ctx.AbortWithError(http.StatusInternalServerError, newError("error with weather engine", err))
+			return nil, loc, ctx.AbortWithError(http.StatusInternalServerError, newError("error with weather engine", err)).SetType(gin.ErrorTypePublic)
 		}
 		days = append(days, day)
 		first = first.Add(oneDay)
