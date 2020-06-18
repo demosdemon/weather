@@ -235,7 +235,7 @@ func getRainbowType(
 		return 0, 0, err
 	}
 
-	return RainbowType(v >> 8), NewLinearHour(v & 0xFF), nil
+	return RainbowType(v >> 8), NewLinearHour(v & 0xFF) + 1, nil
 }
 
 func getAuroraPossible(
