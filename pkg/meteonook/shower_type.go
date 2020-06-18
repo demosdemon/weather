@@ -8,14 +8,12 @@ import (
 type ShowerType int32
 
 const (
-	NotSure ShowerType = iota
-	NoShower
+	NoShower ShowerType = iota
 	Light
 	Heavy
 )
 
 var showerStrings = map[ShowerType]string{
-	NotSure:  "Not Sure",
 	NoShower: "None",
 	Light:    "Light",
 	Heavy:    "Heavy",
