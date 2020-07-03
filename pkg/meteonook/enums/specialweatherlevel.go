@@ -14,50 +14,14 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package meteonook
+//go:generate go run github.com/alvaroloes/enumer -type=SpecialWeatherLevel -linecomment -json -yaml -text
 
-import (
-	"encoding/json"
-	"fmt"
-)
+package enums
 
-type Hemisphere int32
+type SpecialWeatherLevel int
 
 const (
-	Northern Hemisphere = iota
-	Southern
+	NoSpecialWeather SpecialWeatherLevel = iota // No Special Weather
+	Rainbow
+	Aurora
 )
-
-func (h Hemisphere) String() string {
-	switch h {
-	case Northern:
-		return "Northern"
-	case Southern:
-		return "Southern"
-	default:
-		return fmt.Sprintf("Hemisphere(%d)", h)
-	}
-}
-
-func (h Hemisphere) MarshalJSON() ([]byte, error) {
-	return json.Marshal(h.String())
-}
-
-func (h *Hemisphere) UnmarshalJSON(data []byte) error {
-	var s string
-	err := json.Unmarshal(data, &s)
-	if err != nil {
-		return err
-	}
-
-	switch s {
-	case "Northern":
-		*h = Northern
-	case "Southern":
-		*h = Southern
-	default:
-		return fmt.Errorf("invalid Hemisphere: %s", s)
-	}
-
-	return nil
-}

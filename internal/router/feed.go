@@ -24,6 +24,7 @@ import (
 	"github.com/gobuffalo/packr/v2"
 
 	"github.com/demosdemon/weather/pkg/meteonook"
+	"github.com/demosdemon/weather/pkg/meteonook/enums"
 )
 
 func getFeed(box *packr.Box, ctx *gin.Context) ([]*meteonook.Day, *time.Location, error) {
@@ -60,12 +61,12 @@ func getFeed(box *packr.Box, ctx *gin.Context) ([]*meteonook.Day, *time.Location
 		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("last is before first", nil)).SetType(gin.ErrorTypePublic)
 	}
 
-	var hemisphere meteonook.Hemisphere
+	var hemisphere enums.Hemisphere
 	switch query.Hemisphere {
 	case "N", "n":
-		hemisphere = meteonook.Northern
+		hemisphere = enums.Northern
 	case "S", "s":
-		hemisphere = meteonook.Southern
+		hemisphere = enums.Southern
 	default:
 		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("invalid hemisphere", nil)).SetType(gin.ErrorTypePublic)
 	}

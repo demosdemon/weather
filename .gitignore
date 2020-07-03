@@ -21,3 +21,6 @@
 # ignore packr files
 *-packr.go
 packrd/
+
+# ignore enumer output
+*_enumer.go
