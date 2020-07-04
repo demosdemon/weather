@@ -14,14 +14,37 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package router
+package middleware
 
 import (
+	"fmt"
+	"io"
 	"net/http"
+
+	"github.com/demosdemon/cpanic"
 )
 
-func getFeedICS(w http.ResponseWriter, r *http.Request) {
-	if _, _, err := getFeed(r); err == nil {
-		panic("not implemented")
+type recoveryHandler struct {
+	h http.Handler
+	w io.Writer
+}
+
+func (h recoveryHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	defer cpanic.Recover(func(p *cpanic.Panic) {
+		msg := p.String()
+		w.Header().Set("Content-Type", "text/plain")
+		w.Header().Set("Content-Length", fmt.Sprint(len(msg)))
+		w.WriteHeader(http.StatusInternalServerError)
+
+		wr := io.MultiWriter(h.w, w)
+		_, _ = fmt.Fprint(wr, msg)
+	})
+
+	h.h.ServeHTTP(w, r)
+}
+
+func Recover(w io.Writer) func(http.Handler) http.Handler {
+	return func(h http.Handler) http.Handler {
+		return recoveryHandler{h, w}
 	}
 }

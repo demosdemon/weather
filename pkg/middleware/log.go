@@ -14,14 +14,17 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package router
+package middleware
 
 import (
+	"io"
 	"net/http"
+
+	"github.com/gorilla/handlers"
 )
 
-func getFeedICS(w http.ResponseWriter, r *http.Request) {
-	if _, _, err := getFeed(r); err == nil {
-		panic("not implemented")
+func Log(w io.Writer) func(http.Handler) http.Handler {
+	return func(h http.Handler) http.Handler {
+		return handlers.CombinedLoggingHandler(w, h)
 	}
 }

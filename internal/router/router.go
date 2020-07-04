@@ -17,48 +17,83 @@
 package router
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"strconv"
 
-	"github.com/gin-contrib/gzip"
-	"github.com/gin-gonic/gin"
+	"github.com/gorilla/handlers"
+	"github.com/gorilla/mux"
+
+	"github.com/demosdemon/weather/pkg/middleware"
 )
 
-func NewRouter() *gin.Engine {
-	r := gin.New()
+func get(fn http.HandlerFunc) http.Handler {
+	return handlers.MethodHandler{http.MethodGet: fn}
+}
+
+func NewRouter(w io.Writer) http.Handler {
+	r := mux.NewRouter()
 	r.Use(
-		gin.Logger(),
-		gin.ErrorLogger(),
-		gin.Recovery(),
-		gzip.Gzip(gzip.BestCompression),
+		middleware.Log(w),
+		handlers.CompressHandler,
+		middleware.Recover(w),
 	)
 
-	r.GET("/feed.json", getFeedJSON)
-	r.GET("/feed.ics", getFeedICS)
-	r.GET("/today.json", getDateJSON)
-
-	r.GET("/seed/:seed/date/:date/feed.json", getDateJSON)
-	r.GET("/seed/:seed/feed.json", getFeedJSON)
-	r.GET("/seed/:seed/feed.ics", getFeedICS)
+	s := r.PathPrefix("/v1/{seed:[0-9]+}/{hemisphere:[NS]}/{name}").Subrouter()
+	s.Handle("/feed.json", get(getFeedJSON))
+	s.Handle("/feed.ics", get(getFeedICS))
+	s.Handle("/today.json", get(getDateJSON))
+	s.Handle("/{date:[0-9]{4}-[0-9]{2}-[0-9]{2}}.json", get(getDateJSON))
 
 	return r
 }
 
+func writeError(w http.ResponseWriter, err error) {
+	if err, ok := err.(Error); ok {
+		writeJSON(w, err.Code, err)
+		return
+	}
+
+	http.Error(w, err.Error(), http.StatusInternalServerError)
+}
+
+func writeJSON(w http.ResponseWriter, code int, v interface{}) {
+	var buf bytes.Buffer
+	dec := json.NewEncoder(&buf)
+	dec.SetIndent("", "  ")
+	err := dec.Encode(v)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Length", strconv.Itoa(buf.Len()))
+	w.WriteHeader(code)
+	_, _ = io.Copy(w, &buf)
+}
+
 type Error struct {
-	Msg string `json:"error"`
-	Err string `json:"message"`
+	Code int    `json:"code"`
+	Msg  string `json:"error"`
+	Err  string `json:"message"`
 }
 
 func (e Error) Error() string {
 	return fmt.Sprintf("%s: %s", e.Msg, e.Err)
 }
 
-func newError(msg string, err error) Error {
+func newError(code int, msg string, err error) Error {
 	if err == nil {
-		return Error{Msg: msg}
+		return Error{Code: code, Msg: msg}
 	}
 
 	return Error{
-		Msg: msg,
-		Err: err.Error(),
+		Code: code,
+		Msg:  msg,
+		Err:  err.Error(),
 	}
 }

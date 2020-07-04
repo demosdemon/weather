@@ -18,29 +18,38 @@ package router
 
 import (
 	"net/http"
-	"strconv"
+	"net/url"
 	"time"
 
-	"github.com/gin-gonic/gin"
+	"github.com/gorilla/mux"
+	"github.com/gorilla/schema"
 
 	"github.com/demosdemon/weather/pkg/meteonook"
 	"github.com/demosdemon/weather/pkg/meteonook/enums"
 )
 
-const oneDay = time.Hour * 24
+const (
+	RFC3339Date = "2006-01-02"
+	oneDay      = time.Hour * 24
+)
 
 type FeedQuery struct {
-	IslandName string `form:"island_name"`
-	Hemisphere string `form:"hemisphere" binding:"required"`
-	Seed       uint32 `form:"seed"`
-	Timezone   string `form:"timezone"`
-	Date       string `form:"date"`
-	FirstDate  string `form:"first_date"`
-	LastDate   string `form:"last_date"`
+	URL struct {
+		Seed       uint32 `form:"seed,required"`
+		Hemisphere string `form:"hemisphere,required"`
+		Name       string `form:"name,required"`
+		Date       string `form:"date"`
+	}
+
+	Query struct {
+		Timezone  string `form:"timezone"`
+		FirstDate string `form:"first_date"`
+		LastDate  string `form:"last_date"`
+	}
 }
 
 func (f FeedQuery) tz() (*time.Location, error) {
-	return time.LoadLocation(f.Timezone)
+	return time.LoadLocation(f.Query.Timezone)
 }
 
 func (f FeedQuery) parse(s string) (time.Time, error) {
@@ -53,11 +62,11 @@ func (f FeedQuery) parse(s string) (time.Time, error) {
 		return time.Time{}, err
 	}
 
-	return time.ParseInLocation("2006-01-02", s, loc)
+	return time.ParseInLocation(RFC3339Date, s, loc)
 }
 
 func (f FeedQuery) date() (time.Time, error) {
-	date, err := f.parse(f.Date)
+	date, err := f.parse(f.URL.Date)
 	if err != nil {
 		return date, err
 	}
@@ -68,93 +77,110 @@ func (f FeedQuery) date() (time.Time, error) {
 	return date, nil
 }
 
-func (f FeedQuery) first() (time.Time, error) {
-	return f.parse(f.FirstDate)
+func (f FeedQuery) first() (date time.Time, err error) {
+	if date, err = f.parse(f.Query.FirstDate); err != nil {
+		return date, err
+	}
+	if date.IsZero() {
+		if date, err = f.date(); err != nil {
+			return date, err
+		}
+		date = date.AddDate(0, -3, 0)
+	}
+	return date, nil
 }
 
-func (f FeedQuery) last() (time.Time, error) {
-	return f.parse(f.LastDate)
+func (f FeedQuery) last() (date time.Time, err error) {
+	if date, err = f.parse(f.Query.LastDate); err != nil {
+		return date, err
+	}
+	if date.IsZero() {
+		if date, err = f.first(); err != nil {
+			return date, err
+		}
+		date = date.AddDate(1, 0, -1)
+	}
+	return date, nil
 }
 
-func getQuery(ctx *gin.Context) (*FeedQuery, *time.Location, *meteonook.Island, error) {
+func vars(r *http.Request) url.Values {
+	v := mux.Vars(r)
+	rv := make(url.Values, len(v))
+	for k, v := range v {
+		rv.Set(k, v)
+	}
+	return rv
+}
+
+func getQuery(r *http.Request) (*FeedQuery, *time.Location, *meteonook.Island, error) {
 	var query FeedQuery
-	if err := ctx.ShouldBindQuery(&query); err != nil {
-		return nil, nil, nil, ctx.AbortWithError(http.StatusBadRequest, newError("invalid query", err)).SetType(gin.ErrorTypePublic)
+
+	dec := schema.NewDecoder()
+	if err := dec.Decode(&query.URL, vars(r)); err != nil {
+		return nil, nil, nil, newError(http.StatusBadRequest, "invalid url parameters", err)
+	}
+	if err := dec.Decode(&query.Query, r.URL.Query()); err != nil {
+		return nil, nil, nil, newError(http.StatusBadRequest, "invalid query parameters", err)
 	}
 
-	s := ctx.Param("seed")
-	if s == "" {
-		s = ctx.Query("seed")
-	}
-	if s == "" {
-		return nil, nil, nil, ctx.AbortWithError(http.StatusBadRequest, newError("missing seed", nil)).SetType(gin.ErrorTypePublic)
-	}
-
-	seed, err := strconv.ParseUint(s, 10, 32)
+	loc, err := query.tz()
 	if err != nil {
-		return nil, nil, nil, ctx.AbortWithError(http.StatusBadRequest, newError("invalid seed", err)).SetType(gin.ErrorTypePublic)
-	}
-
-	query.Seed = uint32(seed)
-
-	loc, err := time.LoadLocation(query.Timezone)
-	if err != nil {
-		return nil, nil, nil, ctx.AbortWithError(http.StatusBadRequest, newError("invalid timezone", err)).SetType(gin.ErrorTypePublic)
+		return nil, loc, nil, newError(http.StatusBadRequest, "invalid timezone", err)
 	}
 
 	var hemisphere enums.Hemisphere
-	switch query.Hemisphere {
+	switch query.URL.Hemisphere {
 	case "N", "n":
 		hemisphere = enums.Northern
 	case "S", "s":
 		hemisphere = enums.Southern
 	default:
-		return nil, loc, nil, ctx.AbortWithError(http.StatusBadRequest, newError("invalid hemisphere", nil)).SetType(gin.ErrorTypePublic)
+		return nil, loc, nil, newError(http.StatusBadRequest, "invalid hemisphere", nil)
 	}
 
 	island := meteonook.Island{
-		Name:       query.IslandName,
+		Name:       query.URL.Name,
 		Hemisphere: hemisphere,
-		Seed:       query.Seed,
+		Seed:       query.URL.Seed,
 		Timezone:   meteonook.Timezone{Location: loc},
 	}
 
 	return &query, loc, &island, nil
 }
 
-func getDate(ctx *gin.Context) (*meteonook.Day, *time.Location, error) {
-	query, loc, island, err := getQuery(ctx)
+func getDate(r *http.Request) (*meteonook.Day, *time.Location, error) {
+	query, loc, island, err := getQuery(r)
 	if err != nil {
 		return nil, loc, err
 	}
 
 	today, err := query.date()
 	if err != nil {
-		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("invalid date", err)).SetType(gin.ErrorTypePublic)
+		return nil, loc, newError(http.StatusBadRequest, "invalid date", err)
 	}
 
 	day, err := island.NewDay(today)
 	if err != nil {
-		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("error with weather engine", err)).SetType(gin.ErrorTypePublic)
+		return nil, loc, newError(http.StatusBadRequest, "error with weather engine", err)
 	}
 
 	return day, loc, nil
 }
 
-func getFeed(ctx *gin.Context) ([]*meteonook.Day, *time.Location, error) {
-	query, loc, island, err := getQuery(ctx)
+func getFeed(r *http.Request) ([]*meteonook.Day, *time.Location, error) {
+	query, loc, island, err := getQuery(r)
 	if err != nil {
 		return nil, loc, err
 	}
 
 	today, err := query.date()
 	if err != nil {
-		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("invalid date", err)).SetType(gin.ErrorTypePublic)
+		return nil, loc, newError(http.StatusBadRequest, "invalid date", err)
 	}
 
 	first, err := query.first()
 	if err != nil {
-		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("invalid first_date", err)).SetType(gin.ErrorTypePublic)
+		return nil, loc, newError(http.StatusBadRequest, "invalid first_date", err)
 	}
 	if first.IsZero() {
 		first = today.AddDate(0, -3, 0)
@@ -162,14 +188,14 @@ func getFeed(ctx *gin.Context) ([]*meteonook.Day, *time.Location, error) {
 
 	last, err := query.last()
 	if err != nil {
-		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("invalid last_date", err)).SetType(gin.ErrorTypePublic)
+		return nil, loc, newError(http.StatusBadRequest, "invalid last_date", err)
 	}
 	if last.IsZero() {
 		last = first.AddDate(1, 0, 0)
 	}
 	last = last.Add(oneDay)
 	if last.Before(first) {
-		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("last is before first", nil)).SetType(gin.ErrorTypePublic)
+		return nil, loc, newError(http.StatusBadRequest, "last is before first", nil)
 	}
 
 	numDays := int(last.Sub(first) / oneDay)
@@ -177,7 +203,7 @@ func getFeed(ctx *gin.Context) ([]*meteonook.Day, *time.Location, error) {
 	for first.Before(last) {
 		day, err := island.NewDay(first)
 		if err != nil {
-			return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("error with weather engine", err)).SetType(gin.ErrorTypePublic)
+			return nil, loc, newError(http.StatusBadRequest, "error with weather engine", err)
 		}
 		days = append(days, day)
 		first = first.Add(oneDay)

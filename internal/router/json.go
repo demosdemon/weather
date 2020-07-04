@@ -20,23 +20,30 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/demosdemon/weather/pkg/meteonook"
 )
 
-func getFeedJSON(ctx *gin.Context) {
-	if days, _, err := getFeed(ctx); err == nil {
-		var data = make(map[string]*meteonook.Day, len(days))
-		for _, day := range days {
-			data[fmt.Sprintf("%04d-%02d-%02d", day.Year, day.Month, day.Date)] = day
-		}
-		ctx.JSON(http.StatusOK, data)
+func getFeedJSON(w http.ResponseWriter, r *http.Request) {
+	days, _, err := getFeed(r)
+	if err != nil {
+		writeError(w, err)
+		return
 	}
+
+	data := make(map[string]*meteonook.Day, len(days))
+	for _, day := range days {
+		data[fmt.Sprintf("%04d-%02d-%02d", day.Year, day.Month, day.Date)] = day
+	}
+
+	writeJSON(w, http.StatusOK, data)
 }
 
-func getDateJSON(ctx *gin.Context) {
-	if day, _, err := getDate(ctx); err == nil {
-		ctx.JSON(http.StatusOK, day)
+func getDateJSON(w http.ResponseWriter, r *http.Request) {
+	day, _, err := getDate(r)
+	if err != nil {
+		writeError(w, err)
+		return
 	}
+
+	writeJSON(w, http.StatusOK, day)
 }

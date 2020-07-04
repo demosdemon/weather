@@ -18,20 +18,38 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/demosdemon/weather/internal/router"
 )
 
 func main() {
-	r := router.NewRouter()
-
 	port := "3000"
 	if v, ok := os.LookupEnv("PORT"); ok {
 		port = v
 	}
 
-	if err := r.Run(":" + port); err != nil {
+	srv := http.Server{
+		Addr:    ":" + port,
+		Handler: router.NewRouter(os.Stdout),
+	}
+
+	ch := make(chan os.Signal)
+	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		sig := <-ch
+		log.Printf("signal: %v", sig)
+		_ = srv.Close()
+	}()
+
+	log.Printf("listening on port %s", port)
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
+
+	log.Println("fin")
 }
