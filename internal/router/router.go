@@ -18,7 +18,6 @@ package router
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
@@ -42,31 +41,6 @@ func NewRouter() *gin.Engine {
 	r.GET("/seed/:seed/feed.ics", getFeedICS)
 
 	return r
-}
-
-type FeedQuery struct {
-	IslandName string `form:"island_name"`
-	Hemisphere string `form:"hemisphere" binding:"required"`
-	Seed       uint32 `form:"seed"`
-	Timezone   string `form:"timezone"`
-	FirstDate  string `form:"first_date"`
-	LastDate   string `form:"last_date"`
-}
-
-func (f FeedQuery) first() (time.Time, error) {
-	if f.FirstDate == "" {
-		return time.Time{}, nil
-	}
-
-	return time.Parse("2006-01-02", f.FirstDate)
-}
-
-func (f FeedQuery) last() (time.Time, error) {
-	if f.LastDate == "" {
-		return time.Time{}, nil
-	}
-
-	return time.Parse("2006-01-02", f.LastDate)
 }
 
 type Error struct {

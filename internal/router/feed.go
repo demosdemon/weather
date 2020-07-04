@@ -29,6 +29,53 @@ import (
 
 const oneDay = time.Hour * 24
 
+type FeedQuery struct {
+	IslandName string `form:"island_name"`
+	Hemisphere string `form:"hemisphere" binding:"required"`
+	Seed       uint32 `form:"seed"`
+	Timezone   string `form:"timezone"`
+	Date       string `form:"date"`
+	FirstDate  string `form:"first_date"`
+	LastDate   string `form:"last_date"`
+}
+
+func (f FeedQuery) tz() (*time.Location, error) {
+	return time.LoadLocation(f.Timezone)
+}
+
+func (f FeedQuery) parse(s string) (time.Time, error) {
+	if s == "" {
+		return time.Time{}, nil
+	}
+
+	loc, err := f.tz()
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	return time.ParseInLocation("2006-01-02", s, loc)
+}
+
+func (f FeedQuery) date() (time.Time, error) {
+	date, err := f.parse(f.Date)
+	if err != nil {
+		return date, err
+	}
+	if date.IsZero() {
+		tz, _ := f.tz()
+		date = time.Now().In(tz).Truncate(oneDay)
+	}
+	return date, nil
+}
+
+func (f FeedQuery) first() (time.Time, error) {
+	return f.parse(f.FirstDate)
+}
+
+func (f FeedQuery) last() (time.Time, error) {
+	return f.parse(f.LastDate)
+}
+
 func getQuery(ctx *gin.Context) (*FeedQuery, *time.Location, *meteonook.Island, error) {
 	var query FeedQuery
 	if err := ctx.ShouldBindQuery(&query); err != nil {
@@ -76,19 +123,14 @@ func getQuery(ctx *gin.Context) (*FeedQuery, *time.Location, *meteonook.Island, 
 }
 
 func getDate(ctx *gin.Context) (*meteonook.Day, *time.Location, error) {
-	_, loc, island, err := getQuery(ctx)
+	query, loc, island, err := getQuery(ctx)
 	if err != nil {
 		return nil, loc, err
 	}
 
-	var today time.Time
-	if date := ctx.Param("date"); date != "" {
-		today, err = time.ParseInLocation("2006-01-02", date, loc)
-		if err != nil {
-			return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("invalid date", err)).SetType(gin.ErrorTypePublic)
-		}
-	} else {
-		today = time.Now().In(loc).Truncate(oneDay)
+	today, err := query.date()
+	if err != nil {
+		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("invalid date", err)).SetType(gin.ErrorTypePublic)
 	}
 
 	day, err := island.NewDay(today)
@@ -105,7 +147,10 @@ func getFeed(ctx *gin.Context) ([]*meteonook.Day, *time.Location, error) {
 		return nil, loc, err
 	}
 
-	today := time.Now().In(loc).Truncate(oneDay)
+	today, err := query.date()
+	if err != nil {
+		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("invalid date", err)).SetType(gin.ErrorTypePublic)
+	}
 
 	first, err := query.first()
 	if err != nil {
