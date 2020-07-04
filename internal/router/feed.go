@@ -35,16 +35,16 @@ const (
 
 type FeedQuery struct {
 	URL struct {
-		Seed       uint32 `form:"seed,required"`
-		Hemisphere string `form:"hemisphere,required"`
-		Name       string `form:"name,required"`
-		Date       string `form:"date"`
+		Seed       uint32 `schema:"seed,required"`
+		Hemisphere string `schema:"hemisphere,required"`
+		Name       string `schema:"name,required"`
+		Date       string `schema:"date"`
 	}
 
 	Query struct {
-		Timezone  string `form:"timezone"`
-		FirstDate string `form:"first_date"`
-		LastDate  string `form:"last_date"`
+		Timezone  string `schema:"timezone"`
+		FirstDate string `schema:"first_date"`
+		LastDate  string `schema:"last_date"`
 	}
 }
 
