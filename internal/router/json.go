@@ -35,8 +35,8 @@ func getFeedJSON(ctx *gin.Context) {
 	}
 }
 
-func getTodayJSON(ctx *gin.Context) {
-	if day, _, err := getToday(ctx); err == nil {
+func getDateJSON(ctx *gin.Context) {
+	if day, _, err := getDate(ctx); err == nil {
 		ctx.JSON(http.StatusOK, day)
 	}
 }

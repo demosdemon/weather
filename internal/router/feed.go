@@ -18,6 +18,7 @@ package router
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -33,6 +34,21 @@ func getQuery(ctx *gin.Context) (*FeedQuery, *time.Location, *meteonook.Island, 
 	if err := ctx.ShouldBindQuery(&query); err != nil {
 		return nil, nil, nil, ctx.AbortWithError(http.StatusBadRequest, newError("invalid query", err)).SetType(gin.ErrorTypePublic)
 	}
+
+	s := ctx.Param("seed")
+	if s == "" {
+		s = ctx.Query("seed")
+	}
+	if s == "" {
+		return nil, nil, nil, ctx.AbortWithError(http.StatusBadRequest, newError("missing seed", nil)).SetType(gin.ErrorTypePublic)
+	}
+
+	seed, err := strconv.ParseUint(s, 10, 32)
+	if err != nil {
+		return nil, nil, nil, ctx.AbortWithError(http.StatusBadRequest, newError("invalid seed", err)).SetType(gin.ErrorTypePublic)
+	}
+
+	query.Seed = uint32(seed)
 
 	loc, err := time.LoadLocation(query.Timezone)
 	if err != nil {
@@ -59,13 +75,22 @@ func getQuery(ctx *gin.Context) (*FeedQuery, *time.Location, *meteonook.Island, 
 	return &query, loc, &island, nil
 }
 
-func getToday(ctx *gin.Context) (*meteonook.Day, *time.Location, error) {
+func getDate(ctx *gin.Context) (*meteonook.Day, *time.Location, error) {
 	_, loc, island, err := getQuery(ctx)
 	if err != nil {
 		return nil, loc, err
 	}
 
-	today := time.Now().In(loc).Truncate(oneDay)
+	var today time.Time
+	if date := ctx.Param("date"); date != "" {
+		today, err = time.ParseInLocation("2006-01-02", date, loc)
+		if err != nil {
+			return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("invalid date", err)).SetType(gin.ErrorTypePublic)
+		}
+	} else {
+		today = time.Now().In(loc).Truncate(oneDay)
+	}
+
 	day, err := island.NewDay(today)
 	if err != nil {
 		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("error with weather engine", err)).SetType(gin.ErrorTypePublic)

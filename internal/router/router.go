@@ -35,7 +35,11 @@ func NewRouter() *gin.Engine {
 
 	r.GET("/feed.json", getFeedJSON)
 	r.GET("/feed.ics", getFeedICS)
-	r.GET("/today.json", getTodayJSON)
+	r.GET("/today.json", getDateJSON)
+
+	r.GET("/:seed/feed.json", getFeedJSON)
+	r.GET("/:seed/feed.ics", getFeedICS)
+	r.GET("/:seed/:date/feed.json", getDateJSON)
 
 	return r
 }
@@ -43,7 +47,7 @@ func NewRouter() *gin.Engine {
 type FeedQuery struct {
 	IslandName string `form:"island_name"`
 	Hemisphere string `form:"hemisphere" binding:"required"`
-	Seed       uint32 `form:"seed" binding:"required"`
+	Seed       uint32 `form:"seed"`
 	Timezone   string `form:"timezone"`
 	FirstDate  string `form:"first_date"`
 	LastDate   string `form:"last_date"`
