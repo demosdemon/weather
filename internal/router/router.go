@@ -22,10 +22,9 @@ import (
 
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
-	"github.com/gobuffalo/packr/v2"
 )
 
-func NewRouter(box *packr.Box) *gin.Engine {
+func NewRouter() *gin.Engine {
 	r := gin.New()
 	r.Use(
 		gin.Logger(),
@@ -34,8 +33,8 @@ func NewRouter(box *packr.Box) *gin.Engine {
 		gzip.Gzip(gzip.BestCompression),
 	)
 
-	r.GET("/feed.json", getFeedJSON(box))
-	r.GET("/feed.ics", getFeedICS(box))
+	r.GET("/feed.json", getFeedJSON)
+	r.GET("/feed.ics", getFeedICS)
 
 	return r
 }
@@ -43,7 +42,7 @@ func NewRouter(box *packr.Box) *gin.Engine {
 type FeedQuery struct {
 	IslandName string `form:"island_name"`
 	Hemisphere string `form:"hemisphere" binding:"required"`
-	Seed       int32  `form:"seed" binding:"required"`
+	Seed       uint32 `form:"seed" binding:"required"`
 	Timezone   string `form:"timezone"`
 	FirstDate  string `form:"first_date"`
 	LastDate   string `form:"last_date"`

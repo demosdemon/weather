@@ -21,13 +21,12 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gobuffalo/packr/v2"
 
 	"github.com/demosdemon/weather/pkg/meteonook"
 	"github.com/demosdemon/weather/pkg/meteonook/enums"
 )
 
-func getFeed(box *packr.Box, ctx *gin.Context) ([]*meteonook.Day, *time.Location, error) {
+func getFeed(ctx *gin.Context) ([]*meteonook.Day, *time.Location, error) {
 	var query FeedQuery
 	if err := ctx.ShouldBindQuery(&query); err != nil {
 		return nil, nil, ctx.AbortWithError(http.StatusBadRequest, newError("invalid query", err)).SetType(gin.ErrorTypePublic)
@@ -71,11 +70,6 @@ func getFeed(box *packr.Box, ctx *gin.Context) ([]*meteonook.Day, *time.Location
 		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("invalid hemisphere", nil)).SetType(gin.ErrorTypePublic)
 	}
 
-	bytes, err := box.Find("weather.wasm")
-	if err != nil {
-		return nil, loc, ctx.AbortWithError(http.StatusInternalServerError, newError("unable to load weather engine", err)).SetType(gin.ErrorTypePublic)
-	}
-
 	island := meteonook.Island{
 		Name:       query.IslandName,
 		Hemisphere: hemisphere,
@@ -83,16 +77,10 @@ func getFeed(box *packr.Box, ctx *gin.Context) ([]*meteonook.Day, *time.Location
 		Timezone:   meteonook.Timezone{Location: loc},
 	}
 
-	instance, err := meteonook.NewInstance(bytes)
-	if err != nil {
-		return nil, loc, ctx.AbortWithError(http.StatusInternalServerError, newError("unable to instantiate weather engine", err)).SetType(gin.ErrorTypePublic)
-	}
-	defer instance.Close()
-
 	numDays := int(last.Sub(first) / oneDay)
 	days := make([]*meteonook.Day, 0, numDays)
 	for first.Before(last) {
-		day, err := island.NewDay(instance, first)
+		day, err := island.NewDay(first)
 		if err != nil {
 			return nil, loc, ctx.AbortWithError(http.StatusInternalServerError, newError("error with weather engine", err)).SetType(gin.ErrorTypePublic)
 		}

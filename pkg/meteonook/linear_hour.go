@@ -22,7 +22,7 @@ import (
 	"time"
 )
 
-type LinearHour int32
+type LinearHour int
 
 const (
 	FiveAM LinearHour = iota
@@ -73,7 +73,7 @@ func (hour LinearHour) TwelveHourString() string {
 	return fmt.Sprintf("%02d:00 %s", v, ampm)
 }
 
-func NewLinearHour(hour int32) LinearHour {
+func NewLinearHour(hour int) LinearHour {
 	if 5 > hour {
 		return LinearHour(19 + hour)
 	}
@@ -81,12 +81,12 @@ func NewLinearHour(hour int32) LinearHour {
 	return LinearHour(hour - 5)
 }
 
-func (hour LinearHour) RegularHour() int32 {
+func (hour LinearHour) RegularHour() int {
 	if 19 <= hour {
-		return int32(hour - 19)
+		return int(hour - 19)
 	}
 
-	return int32(hour + 5)
+	return int(hour + 5)
 }
 
 func (hour LinearHour) MarshalJSON() ([]byte, error) {
@@ -105,6 +105,6 @@ func (hour *LinearHour) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	*hour = NewLinearHour(int32(t.Hour()))
+	*hour = NewLinearHour(t.Hour())
 	return nil
 }

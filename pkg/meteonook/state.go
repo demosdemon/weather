@@ -36,40 +36,48 @@ const (
 type Island struct {
 	Name       string           `json:"name,omitempty"`
 	Hemisphere enums.Hemisphere `json:"hemisphere"`
-	Seed       int32            `json:"seed"`
+	Seed       uint32           `json:"seed"`
 	Timezone   Timezone         `json:"timezone"`
 }
 
 type Day struct {
-	Island         *Island           `json:"island"`
-	Year           int32             `json:"year"`
-	Month          time.Month        `json:"month"`
-	Date           int32             `json:"date"`
-	Weekday        time.Weekday      `json:"weekday"`
-	SpecialDay     enums.SpecialDay  `json:"special_day,omitempty"`
-	Pattern        enums.Pattern     `json:"pattern"`
-	ShowerLevel    enums.ShowerLevel `json:"shower_type,omitempty"`
-	FogType        enums.FogType     `json:"fog_type,omitempty"`
-	RainbowType    RainbowType       `json:"rainbow_type,omitempty"`
-	AuroraPossible bool              `json:"aurora_possible,omitempty"`
-	SnowPossible   bool              `json:"snow_possible,omitempty"`
-	Hours          [24]Hour          `json:"hours"`
+	Island         *Island             `json:"island"`
+	Year           int32               `json:"year"`
+	Month          time.Month          `json:"month"`
+	Date           int32               `json:"date"`
+	Weekday        time.Weekday        `json:"weekday"`
+	Constellation  enums.Constellation `json:"constellation"`
+	SpecialDay     enums.SpecialDay    `json:"special_day,omitempty"`
+	CloudLevel     enums.CloudLevel    `json:"cloud_level,omitempty"`
+	Pattern        enums.Pattern       `json:"pattern"`
+	ShowerLevel    enums.ShowerLevel   `json:"shower_type,omitempty"`
+	FogType        enums.FogType       `json:"fog_type,omitempty"`
+	RainbowInfo    *RainbowInfo        `json:"rainbow_info,omitempty"`
+	AuroraPossible bool                `json:"aurora_possible,omitempty"`
+	SnowLevel      enums.SnowLevel     `json:"snow_level,omitempty"`
+	Hours          [24]Hour            `json:"hours"`
 }
 
 type Hour struct {
 	Hour          LinearHour        `json:"hour"`
 	Weather       enums.Weather     `json:"weather"`
-	WindPower     int32             `json:"wind_power,omitempty"`
-	ShowerType    enums.ShowerLevel `json:"shower_type,omitempty"`
+	WindPower     uint8             `json:"wind_power,omitempty"`
+	ShowerLevel   enums.ShowerLevel `json:"shower_level,omitempty"`
 	FogType       enums.FogType     `json:"fog_type,omitempty"`
 	RainbowType   RainbowType       `json:"rainbow_type,omitempty"`
 	AuroraVisible bool              `json:"aurora_visible,omitempty"`
-	SnowVisible   bool              `json:"snow_visible,omitempty"`
+	SnowLevel     enums.SnowLevel   `json:"snow_level,omitempty"`
 	ShootingStars []time.Time       `json:"shooting_stars,omitempty"`
 }
 
-func (island *Island) NewDay(instance *Instance, ts time.Time) (*Day, error) {
+type RainbowInfo struct {
+	Hour LinearHour  `json:"hour"`
+	Type RainbowType `json:"type,omitempty"`
+}
+
+func (island *Island) NewDay(ts time.Time) (*Day, error) {
 	const oneDay = time.Hour * 24
+	ts = ts.Truncate(oneDay)
 	year, month, date := ts.Date()
 	if year < minYear || maxYear < year {
 		return nil, errors.New("the provided time is outside of the valid range [2000, 2060]")
@@ -83,277 +91,90 @@ func (island *Island) NewDay(instance *Instance, ts time.Time) (*Day, error) {
 		Weekday: ts.Weekday(),
 	}
 
-	ts = ts.Truncate(oneDay)
 	yts := ts.Add(-oneDay)
 
-	yesterday, err := getWeatherPattern(instance, island.Seed, island.Hemisphere, yts.Year(), yts.Month(), yts.Day())
-	if err != nil {
-		return nil, err
-	}
-
-	if day.SpecialDay, err = getSpecialDay(instance, island.Hemisphere, year, month, date); err != nil {
-		return nil, err
-	}
-	if day.Pattern, err = getWeatherPattern(instance, island.Seed, island.Hemisphere, year, month, date); err != nil {
-		return nil, err
-	}
+	yesterday := GetPattern(yts, island.Hemisphere, island.Seed)
+	day.Constellation = GetConstellation(ts)
+	day.SpecialDay = GetSpecialDay(ts, island.Hemisphere)
+	day.CloudLevel = GetCloudLevel(ts, island.Hemisphere)
+	day.Pattern = GetPattern(ts, island.Hemisphere, island.Seed)
 	day.ShowerLevel = day.Pattern.ShowerLevel()
-	if day.FogType, err = getFogType(instance, island.Seed, island.Hemisphere, year, month, date, day.Pattern, yesterday); err != nil {
-		return nil, err
-	}
-	var rainbowHour LinearHour
-	if day.RainbowType, rainbowHour, err = getRainbowType(instance, island.Seed, island.Hemisphere, year, month, date, day.Pattern); err != nil {
-		return nil, err
-	}
-	if day.AuroraPossible, err = getAuroraPossible(instance, island.Seed, island.Hemisphere, year, month, date, day.Pattern); err != nil {
-		return nil, err
-	}
-	if day.SnowPossible, err = getSnowPossible(instance, island.Hemisphere, month, date); err != nil {
-		return nil, err
-	}
+	day.FogType = getFogType(island.Hemisphere, island.Seed, ts, yesterday, day.Pattern)
+	day.RainbowInfo = GetRainbowInfo(ts, island.Hemisphere, day.Pattern, island.Seed)
+	day.AuroraPossible = IsAuroraPattern(ts, island.Hemisphere, day.Pattern)
+	day.SnowLevel = GetSnowLevel(ts, island.Hemisphere)
 
 	for idx := range day.Hours {
+		ts := ts.Add(time.Duration(idx+5) * time.Hour)
 		hour := LinearHour(idx)
-		weather, err := getWeather(instance, day.Pattern, hour)
-		if err != nil {
-			return nil, err
-		}
-		windPower, err := getWindPower(instance, island.Seed, island.Hemisphere, year, month, date, hour, day.Pattern)
-		if err != nil {
-			return nil, err
-		}
-		shootingStarsPossible, err := getShootingStarsPossible(instance, day.Pattern, hour)
-		showerType := day.ShowerLevel
+		weather := GetWeather(hour, day.Pattern)
+
+		showerLevel := day.ShowerLevel
+		shootingStarsPossible := IsShootingStarsPossible(hour, day.Pattern)
 		if !shootingStarsPossible {
-			showerType = enums.NoShower
+			showerLevel = enums.NoShower
 		}
+
 		fogType := enums.NoFog
 		if SixAM < hour && hour < TenAM {
 			fogType = day.FogType
 		}
+
 		rainbowType := NoRainbow
-		if rainbowHour == hour || rainbowHour == hour+1 {
-			rainbowType = day.RainbowType
+		if day.RainbowInfo != nil && (day.RainbowInfo.Hour == hour || day.RainbowInfo.Hour == hour+1) {
+			rainbowType = day.RainbowInfo.Type
 		}
-		aurora := day.AuroraPossible && day.Pattern == enums.Fine00 && SixPM < hour && hour < ThreeAM
-		snow := day.SnowPossible && weather > enums.StormClouds
-		var shootingStars []time.Time
-		if showerType > enums.NoShower {
-			if shootingStars, err = getShootingStars(instance, island.Seed, year, month, date, hour, island.Timezone, day.Pattern); err != nil {
-				return nil, err
-			}
+
+		snow := day.SnowLevel
+		if weather <= enums.StormClouds {
+			snow = enums.NoSnow
 		}
 
 		day.Hours[idx] = Hour{
 			Hour:          hour,
 			Weather:       weather,
-			WindPower:     windPower,
-			ShowerType:    showerType,
+			WindPower:     GetWindPower(island.Seed, ts, day.Pattern),
+			ShowerLevel:   showerLevel,
 			FogType:       fogType,
 			RainbowType:   rainbowType,
-			AuroraVisible: aurora,
-			SnowVisible:   snow,
-			ShootingStars: shootingStars,
+			AuroraVisible: day.AuroraPossible && day.Pattern == enums.Fine00 && SixPM < hour && hour < ThreeAM,
+			SnowLevel:     snow,
+			ShootingStars: GetShootingStars(island.Seed, ts, day.Pattern),
 		}
 	}
 
 	return day, nil
 }
 
-func getSpecialDay(
-	instance *Instance,
-	hemisphere enums.Hemisphere,
-	year int,
-	month time.Month,
-	date int,
-) (enums.SpecialDay, error) {
-	v, err := instance.IsSpecialDay(int32(hemisphere), int32(year), int32(month), int32(date))
-	return enums.SpecialDay(v), err
-}
-
-func getWeatherPattern(
-	instance *Instance,
-	seed int32,
-	hemisphere enums.Hemisphere,
-	year int,
-	month time.Month,
-	date int,
-) (enums.Pattern, error) {
-	v, err := instance.GetPattern(seed, int32(hemisphere), int32(year), int32(month), int32(date))
-	return enums.Pattern(v), err
-}
-
 func getFogType(
-	instance *Instance,
-	seed int32,
 	hemisphere enums.Hemisphere,
-	year int,
-	month time.Month,
-	date int,
+	seed uint32,
+	date time.Time,
 	today enums.Pattern,
 	yesterday enums.Pattern,
-) (enums.FogType, error) {
-	v, err := instance.GetFog(int32(hemisphere), int32(month), int32(date))
-
-	if err != nil {
-		return 0, err
+) enums.FogType {
+	getWindPower := func(hour int) bool {
+		date := date.Add(time.Duration(hour) * time.Hour)
+		v := GetWindPower(seed, date, yesterday)
+		return 3 > v
 	}
 
-	if v == 0 {
-		return enums.NoFog, nil
-	}
-
-	getWindPower := func(prev bool, hour int32) (bool, error) {
-		if !prev {
-			return prev, nil
+	switch GetFogType(date, hemisphere) {
+	case enums.HeavyFog:
+		if preNormalFogPatterns[yesterday] &&
+			fogPatterns[today] &&
+			getWindPower(5) &&
+			getWindPower(6) &&
+			getWindPower(7) &&
+			getWindPower(8) {
+			return enums.HeavyFog
 		}
-
-		v, err := instance.GetWindPower(int32(hemisphere), seed, int32(year), int32(month), int32(date), hour, int32(yesterday))
-		return 3 > v, err
-	}
-
-	normalFog := preNormalFogPatterns[yesterday]
-	normalFog = normalFog && fogPatterns[today]
-	for _, hour := range []int32{5, 6, 7, 8} {
-		if normalFog, err = getWindPower(normalFog, hour); err != nil {
-			return 0, err
+		fallthrough
+	case enums.WaterFog:
+		if preWaterFogPatterns[yesterday] && fogPatterns[today] && CheckWaterFog(date, seed) {
+			return enums.WaterFog
 		}
 	}
 
-	if normalFog {
-		return enums.HeavyFog, nil
-	}
-
-	waterFog := preWaterFogPatterns[yesterday]
-	waterFog = waterFog && fogPatterns[today]
-	if waterFog {
-		v, err = instance.CheckWaterFog(seed, int32(year), int32(month), int32(date))
-		if err != nil {
-			return 0, err
-		}
-		if v > 0 {
-			return enums.WaterFog, nil
-		}
-	}
-
-	return enums.NoFog, nil
-}
-
-func getRainbowType(
-	instance *Instance,
-	seed int32,
-	hemisphere enums.Hemisphere,
-	year int,
-	month time.Month,
-	date int,
-	pattern enums.Pattern,
-) (RainbowType, LinearHour, error) {
-	v, err := instance.IsRainbowPattern(int32(hemisphere), seed, int32(year), int32(month), int32(date), int32(pattern))
-	if err != nil {
-		return 0, 0, err
-	}
-
-	return RainbowType(v >> 8), NewLinearHour(v&0xFF) + 1, nil
-}
-
-func getAuroraPossible(
-	instance *Instance,
-	seed int32,
-	hemisphere enums.Hemisphere,
-	year int,
-	month time.Month,
-	date int,
-	pattern enums.Pattern,
-) (bool, error) {
-	v, err := instance.IsAuroraPattern(int32(hemisphere), seed, int32(year), int32(month), int32(date), int32(pattern))
-	return v > 0, err
-}
-
-func getSnowPossible(
-	instance *Instance,
-	hemisphere enums.Hemisphere,
-	month time.Month,
-	date int,
-) (bool, error) {
-	v, err := instance.GetSnow(int32(hemisphere), int32(month), int32(date))
-	return v > 0, err
-}
-
-func getWeather(
-	instance *Instance,
-	pattern enums.Pattern,
-	hour LinearHour,
-) (enums.Weather, error) {
-	v, err := instance.GetWeather(int32(pattern), hour.RegularHour())
-	return enums.Weather(v), err
-}
-
-func getWindPower(
-	instance *Instance,
-	seed int32,
-	hemisphere enums.Hemisphere,
-	year int,
-	month time.Month,
-	date int,
-	hour LinearHour,
-	pattern enums.Pattern,
-) (int32, error) {
-	return instance.GetWindPower(int32(hemisphere), seed, int32(year), int32(month), int32(date), hour.RegularHour(), int32(pattern))
-}
-
-func getShootingStarsPossible(
-	instance *Instance,
-	pattern enums.Pattern,
-	hour LinearHour,
-) (bool, error) {
-	v, err := instance.CanHaveShootingStars(int32(pattern), hour.RegularHour())
-	return v > 0, err
-}
-
-func getShootingStars(
-	instance *Instance,
-	seed int32,
-	year int,
-	month time.Month,
-	date int,
-	hour LinearHour,
-	tz Timezone,
-	pattern enums.Pattern,
-) ([]time.Time, error) {
-	const nsec = 0
-	loc := tz.Location
-	if loc == nil {
-		loc = time.UTC
-	}
-
-	var rv []time.Time
-	for minute := int32(0); minute < 60; minute++ {
-		v, err := instance.QueryStars(int32(pattern), seed, int32(year), int32(month), int32(date), hour.RegularHour(), minute)
-		if err != nil {
-			return nil, err
-		}
-
-		if v <= 0 {
-			continue
-		}
-
-		v, err = instance.GetStarAmount()
-		if err != nil {
-			return nil, err
-		}
-
-		for idx := int32(0); idx < v; idx++ {
-			sec, err := instance.GetStarSecond(idx)
-			if err != nil {
-				return nil, err
-			}
-
-			ts := time.Date(year, month, date, int(hour.RegularHour()), int(minute), int(sec), nsec, loc)
-			rv = append(rv, ts)
-		}
-	}
-
-	cp := make([]time.Time, len(rv))
-	copy(cp, rv)
-	return cp, nil
+	return enums.NoFog
 }
