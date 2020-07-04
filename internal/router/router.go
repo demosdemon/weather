@@ -37,9 +37,9 @@ func NewRouter() *gin.Engine {
 	r.GET("/feed.ics", getFeedICS)
 	r.GET("/today.json", getDateJSON)
 
-	r.GET("/:seed/feed.json", getFeedJSON)
-	r.GET("/:seed/feed.ics", getFeedICS)
-	r.GET("/:seed/:date/feed.json", getDateJSON)
+	r.GET("/seed/:seed/date/:date/feed.json", getDateJSON)
+	r.GET("/seed/:seed/feed.json", getFeedJSON)
+	r.GET("/seed/:seed/feed.ics", getFeedICS)
 
 	return r
 }
