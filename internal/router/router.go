@@ -35,6 +35,7 @@ func NewRouter() *gin.Engine {
 
 	r.GET("/feed.json", getFeedJSON)
 	r.GET("/feed.ics", getFeedICS)
+	r.GET("/today.json", getTodayJSON)
 
 	return r
 }

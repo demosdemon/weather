@@ -26,18 +26,60 @@ import (
 	"github.com/demosdemon/weather/pkg/meteonook/enums"
 )
 
-func getFeed(ctx *gin.Context) ([]*meteonook.Day, *time.Location, error) {
+const oneDay = time.Hour * 24
+
+func getQuery(ctx *gin.Context) (*FeedQuery, *time.Location, *meteonook.Island, error) {
 	var query FeedQuery
 	if err := ctx.ShouldBindQuery(&query); err != nil {
-		return nil, nil, ctx.AbortWithError(http.StatusBadRequest, newError("invalid query", err)).SetType(gin.ErrorTypePublic)
+		return nil, nil, nil, ctx.AbortWithError(http.StatusBadRequest, newError("invalid query", err)).SetType(gin.ErrorTypePublic)
 	}
 
 	loc, err := time.LoadLocation(query.Timezone)
 	if err != nil {
-		return nil, nil, ctx.AbortWithError(http.StatusBadRequest, newError("invalid timezone", err)).SetType(gin.ErrorTypePublic)
+		return nil, nil, nil, ctx.AbortWithError(http.StatusBadRequest, newError("invalid timezone", err)).SetType(gin.ErrorTypePublic)
 	}
 
-	const oneDay = time.Hour * 24
+	var hemisphere enums.Hemisphere
+	switch query.Hemisphere {
+	case "N", "n":
+		hemisphere = enums.Northern
+	case "S", "s":
+		hemisphere = enums.Southern
+	default:
+		return nil, loc, nil, ctx.AbortWithError(http.StatusBadRequest, newError("invalid hemisphere", nil)).SetType(gin.ErrorTypePublic)
+	}
+
+	island := meteonook.Island{
+		Name:       query.IslandName,
+		Hemisphere: hemisphere,
+		Seed:       query.Seed,
+		Timezone:   meteonook.Timezone{Location: loc},
+	}
+
+	return &query, loc, &island, nil
+}
+
+func getToday(ctx *gin.Context) (*meteonook.Day, *time.Location, error) {
+	_, loc, island, err := getQuery(ctx)
+	if err != nil {
+		return nil, loc, err
+	}
+
+	today := time.Now().In(loc).Truncate(oneDay)
+	day, err := island.NewDay(today)
+	if err != nil {
+		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("error with weather engine", err)).SetType(gin.ErrorTypePublic)
+	}
+
+	return day, loc, nil
+}
+
+func getFeed(ctx *gin.Context) ([]*meteonook.Day, *time.Location, error) {
+	query, loc, island, err := getQuery(ctx)
+	if err != nil {
+		return nil, loc, err
+	}
+
 	today := time.Now().In(loc).Truncate(oneDay)
 
 	first, err := query.first()
@@ -60,29 +102,12 @@ func getFeed(ctx *gin.Context) ([]*meteonook.Day, *time.Location, error) {
 		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("last is before first", nil)).SetType(gin.ErrorTypePublic)
 	}
 
-	var hemisphere enums.Hemisphere
-	switch query.Hemisphere {
-	case "N", "n":
-		hemisphere = enums.Northern
-	case "S", "s":
-		hemisphere = enums.Southern
-	default:
-		return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("invalid hemisphere", nil)).SetType(gin.ErrorTypePublic)
-	}
-
-	island := meteonook.Island{
-		Name:       query.IslandName,
-		Hemisphere: hemisphere,
-		Seed:       query.Seed,
-		Timezone:   meteonook.Timezone{Location: loc},
-	}
-
 	numDays := int(last.Sub(first) / oneDay)
 	days := make([]*meteonook.Day, 0, numDays)
 	for first.Before(last) {
 		day, err := island.NewDay(first)
 		if err != nil {
-			return nil, loc, ctx.AbortWithError(http.StatusInternalServerError, newError("error with weather engine", err)).SetType(gin.ErrorTypePublic)
+			return nil, loc, ctx.AbortWithError(http.StatusBadRequest, newError("error with weather engine", err)).SetType(gin.ErrorTypePublic)
 		}
 		days = append(days, day)
 		first = first.Add(oneDay)
