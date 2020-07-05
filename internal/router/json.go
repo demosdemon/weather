@@ -17,15 +17,14 @@
 package router
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/demosdemon/weather/pkg/meteonook"
 )
 
 type FeedResponse struct {
-	Island *meteonook.Island         `json:"island"`
-	Days   map[string]*meteonook.Day `json:"days"`
+	Island *meteonook.Island `json:"island"`
+	Days   []*meteonook.Day  `json:"days"`
 }
 
 func getFeedJSON(w http.ResponseWriter, r *http.Request) {
@@ -37,13 +36,7 @@ func getFeedJSON(w http.ResponseWriter, r *http.Request) {
 
 	res := FeedResponse{
 		Island: island,
-		Days:   make(map[string]*meteonook.Day, len(days)),
-	}
-
-	for _, day := range days {
-		ts := fmt.Sprintf("%04d-%02d-%02d", day.Year, day.Month, day.Date)
-		day.Island = nil
-		res.Days[ts] = day
+		Days:   days,
 	}
 
 	writeJSON(w, http.StatusOK, res)
