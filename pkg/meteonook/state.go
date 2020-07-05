@@ -18,7 +18,6 @@ package meteonook
 
 import (
 	"errors"
-	"log"
 	"time"
 
 	"github.com/demosdemon/weather/pkg/meteonook/enums"
@@ -78,7 +77,6 @@ type RainbowInfo struct {
 
 func (island *Island) NewDay(ts time.Time) (*Day, error) {
 	ts = ts.Add(5 * time.Hour)
-	log.Printf("ts=%v;", ts)
 	year, month, date := ts.Date()
 	if year < minYear || maxYear < year {
 		return nil, errors.New("the provided time is outside of the valid range [2000, 2060]")
