@@ -306,7 +306,7 @@ func GetShootingStars(seed uint32, date time.Time, pattern enums.Pattern) []time
 		day   = 0x100
 		hour  = 0x10000
 	)
-	date = date.Truncate(time.Minute)
+	date = date.Truncate(time.Hour)
 	seed = ComputeSeedHour(seed, year, month, day, hour, date)
 
 	var rv []time.Time

@@ -17,11 +17,10 @@
 package router
 
 import (
+	"errors"
 	"net/http"
 )
 
 func getFeedICS(w http.ResponseWriter, r *http.Request) {
-	if _, _, err := getFeed(r); err == nil {
-		panic("not implemented")
-	}
+	writeError(w, errors.New("not implemented"))
 }

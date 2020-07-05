@@ -23,23 +23,34 @@ import (
 	"github.com/demosdemon/weather/pkg/meteonook"
 )
 
+type FeedResponse struct {
+	Island *meteonook.Island         `json:"island"`
+	Days   map[string]*meteonook.Day `json:"days"`
+}
+
 func getFeedJSON(w http.ResponseWriter, r *http.Request) {
-	days, _, err := getFeed(r)
+	island, days, _, err := getFeed(r)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
 
-	data := make(map[string]*meteonook.Day, len(days))
-	for _, day := range days {
-		data[fmt.Sprintf("%04d-%02d-%02d", day.Year, day.Month, day.Date)] = day
+	res := FeedResponse{
+		Island: island,
+		Days:   make(map[string]*meteonook.Day, len(days)),
 	}
 
-	writeJSON(w, http.StatusOK, data)
+	for _, day := range days {
+		ts := fmt.Sprintf("%04d-%02d-%02d", day.Year, day.Month, day.Date)
+		day.Island = nil
+		res.Days[ts] = day
+	}
+
+	writeJSON(w, http.StatusOK, res)
 }
 
 func getDateJSON(w http.ResponseWriter, r *http.Request) {
-	day, _, err := getDate(r)
+	_, day, _, err := getDate(r)
 	if err != nil {
 		writeError(w, err)
 		return

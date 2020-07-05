@@ -17,6 +17,7 @@
 package router
 
 import (
+	"log"
 	"net/http"
 	"net/url"
 	"time"
@@ -30,7 +31,6 @@ import (
 
 const (
 	RFC3339Date = "2006-01-02"
-	oneDay      = time.Hour * 24
 )
 
 type FeedQuery struct {
@@ -72,7 +72,7 @@ func (f FeedQuery) date() (time.Time, error) {
 	}
 	if date.IsZero() {
 		tz, _ := f.tz()
-		date = time.Now().In(tz).Truncate(oneDay)
+		date = truncate(time.Now().In(tz))
 	}
 	return date, nil
 }
@@ -98,7 +98,7 @@ func (f FeedQuery) last() (date time.Time, err error) {
 		if date, err = f.first(); err != nil {
 			return date, err
 		}
-		date = date.AddDate(1, 0, -1)
+		date = date.AddDate(1, 0, 0)
 	}
 	return date, nil
 }
@@ -148,66 +148,70 @@ func getQuery(r *http.Request) (*FeedQuery, *time.Location, *meteonook.Island, e
 	return &query, loc, &island, nil
 }
 
-func getDate(r *http.Request) (*meteonook.Day, *time.Location, error) {
+func getDate(r *http.Request) (*meteonook.Island, *meteonook.Day, *time.Location, error) {
 	query, loc, island, err := getQuery(r)
 	if err != nil {
-		return nil, loc, err
+		return island, nil, loc, err
 	}
 
 	today, err := query.date()
 	if err != nil {
-		return nil, loc, newError(http.StatusBadRequest, "invalid date", err)
+		return island, nil, loc, newError(http.StatusBadRequest, "invalid date", err)
 	}
 
 	day, err := island.NewDay(today)
 	if err != nil {
-		return nil, loc, newError(http.StatusBadRequest, "error with weather engine", err)
+		return island, nil, loc, newError(http.StatusBadRequest, "error with weather engine", err)
 	}
 
-	return day, loc, nil
+	return island, day, loc, nil
 }
 
-func getFeed(r *http.Request) ([]*meteonook.Day, *time.Location, error) {
+func getFeed(r *http.Request) (*meteonook.Island, []*meteonook.Day, *time.Location, error) {
 	query, loc, island, err := getQuery(r)
 	if err != nil {
-		return nil, loc, err
-	}
-
-	today, err := query.date()
-	if err != nil {
-		return nil, loc, newError(http.StatusBadRequest, "invalid date", err)
+		return island, nil, loc, err
 	}
 
 	first, err := query.first()
 	if err != nil {
-		return nil, loc, newError(http.StatusBadRequest, "invalid first_date", err)
-	}
-	if first.IsZero() {
-		first = today.AddDate(0, -3, 0)
+		return island, nil, loc, newError(http.StatusBadRequest, "invalid first_date", err)
 	}
 
 	last, err := query.last()
 	if err != nil {
-		return nil, loc, newError(http.StatusBadRequest, "invalid last_date", err)
-	}
-	if last.IsZero() {
-		last = first.AddDate(1, 0, 0)
-	}
-	last = last.Add(oneDay)
-	if last.Before(first) {
-		return nil, loc, newError(http.StatusBadRequest, "last is before first", nil)
+		return island, nil, loc, newError(http.StatusBadRequest, "invalid last_date", err)
 	}
 
-	numDays := int(last.Sub(first) / oneDay)
+	if last.Before(first) {
+		return island, nil, loc, newError(http.StatusBadRequest, "last is before first", nil)
+	}
+
+	log.Printf("first=%v; last=%v;", first, last)
+
+	numDays := int(last.Sub(first) / (24 * time.Hour))
 	days := make([]*meteonook.Day, 0, numDays)
 	for first.Before(last) {
 		day, err := island.NewDay(first)
 		if err != nil {
-			return nil, loc, newError(http.StatusBadRequest, "error with weather engine", err)
+			return island, nil, loc, newError(http.StatusBadRequest, "error with weather engine", err)
 		}
 		days = append(days, day)
-		first = first.Add(oneDay)
+		first = first.AddDate(0, 0, 1)
 	}
 
-	return days, loc, nil
+	return island, days, loc, nil
+}
+
+func truncate(date time.Time) time.Time {
+	return time.Date(
+		date.Year(),
+		date.Month(),
+		date.Day(),
+		0,
+		0,
+		0,
+		0,
+		date.Location(),
+	)
 }

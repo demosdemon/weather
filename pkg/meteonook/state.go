@@ -18,6 +18,7 @@ package meteonook
 
 import (
 	"errors"
+	"log"
 	"time"
 
 	"github.com/demosdemon/weather/pkg/meteonook/enums"
@@ -41,7 +42,7 @@ type Island struct {
 }
 
 type Day struct {
-	Island         *Island             `json:"island"`
+	Island         *Island             `json:"island,omitempty"`
 	Year           int32               `json:"year"`
 	Month          time.Month          `json:"month"`
 	Date           int32               `json:"date"`
@@ -76,8 +77,8 @@ type RainbowInfo struct {
 }
 
 func (island *Island) NewDay(ts time.Time) (*Day, error) {
-	const oneDay = time.Hour * 24
-	ts = ts.Truncate(oneDay)
+	ts = ts.Add(5 * time.Hour)
+	log.Printf("ts=%v;", ts)
 	year, month, date := ts.Date()
 	if year < minYear || maxYear < year {
 		return nil, errors.New("the provided time is outside of the valid range [2000, 2060]")
@@ -91,7 +92,7 @@ func (island *Island) NewDay(ts time.Time) (*Day, error) {
 		Weekday: ts.Weekday(),
 	}
 
-	yts := ts.Add(-oneDay)
+	yts := ts.AddDate(0, 0, -1)
 
 	yesterday := GetPattern(yts, island.Hemisphere, island.Seed)
 	day.Constellation = GetConstellation(ts)
@@ -105,7 +106,7 @@ func (island *Island) NewDay(ts time.Time) (*Day, error) {
 	day.SnowLevel = GetSnowLevel(ts, island.Hemisphere)
 
 	for idx := range day.Hours {
-		ts := ts.Add(time.Duration(idx+5) * time.Hour)
+		ts := ts.Add(time.Duration(idx) * time.Hour)
 		hour := LinearHour(idx)
 		weather := GetWeather(hour, day.Pattern)
 
