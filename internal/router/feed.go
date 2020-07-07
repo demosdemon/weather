@@ -17,7 +17,6 @@
 package router
 
 import (
-	"log"
 	"net/http"
 	"net/url"
 	"time"
@@ -187,8 +186,7 @@ func getFeed(r *http.Request) (*meteonook.Island, []*meteonook.Day, *time.Locati
 		return island, nil, loc, newError(http.StatusBadRequest, "last is before first", nil)
 	}
 
-	log.Printf("first=%v; last=%v;", first, last)
-
+	last = last.Add(time.Second)
 	numDays := int(last.Sub(first) / (24 * time.Hour))
 	days := make([]*meteonook.Day, 0, numDays)
 	for first.Before(last) {
