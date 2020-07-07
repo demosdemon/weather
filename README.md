@@ -746,6 +746,39 @@ $ curl 'https://serene-garden-64785.herokuapp.com/v1/1160352294/N/%23island/feed
 }
 ```
 
+### In Code
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+	"time"
+
+	"github.com/demosdemon/weather/pkg/meteonook"
+	"github.com/demosdemon/weather/pkg/meteonook/enums"
+)
+
+func main() {
+	island := meteonook.Island{
+		Name:       "#island",
+		Hemisphere: enums.Northern,
+		Seed:       1160352294,
+		Timezone:   meteonook.Timezone{Location: time.Local},
+	}
+
+	today := time.Now().In(time.Local)
+	day, err := island.NewDay(today)
+
+	if err != nil {
+		log.Panic(err)
+	}
+
+	fmt.Printf("%#v\n", day)
+}
+```
+
 ## Thanks
 
 Thanks to [@_Ninji](https://twitter.com/_Ninji) for his work on [MeteoNook](https://wuffs.org/acnh/weather)
