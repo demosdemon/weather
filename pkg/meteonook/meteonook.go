@@ -78,10 +78,10 @@ func GetSpecialDay(date time.Time, hemisphere enums.Hemisphere) enums.SpecialDay
 		hemisphere == enums.Northern && month == time.July && day == bugConJul[y],
 		hemisphere == enums.Northern && month == time.August && day == bugConAug[y],
 		hemisphere == enums.Northern && month == time.September && day == bugConSep[y],
+		hemisphere == enums.Southern && month == time.November && day == bugConNov[y],
 		hemisphere == enums.Southern && month == time.December && day == bugConDec[y],
 		hemisphere == enums.Southern && month == time.January && day == bugConJan[y],
-		hemisphere == enums.Southern && month == time.February && day == bugConFeb[y],
-		hemisphere == enums.Southern && month == time.March && day == bugConMar[y]:
+		hemisphere == enums.Southern && month == time.February && day == bugConFeb[y]:
 		return enums.InsectContest
 	case month == time.December && day == 31:
 		return enums.Countdown
