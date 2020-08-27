@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-
-set -eux
-
-go env
-go generate ./...
-go build .
-cp "$(go env GOPATH)"/pkg/mod/github.com/wasmerio/go-ext-wasm@*/wasmer/libwasmer.* ./bin
